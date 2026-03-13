@@ -1,26 +1,67 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-base:        #0a0a0a;   /* main background */
+  --bg-surface:     #111111;   /* cards, panels */
+  --bg-elevated:    #1a1a1a;   /* hover states, inputs */
+  --bg-border:      #222222;   /* borders, dividers */
+
+  --text-primary:   #f0f0f0;   /* headings, important text */
+  --text-secondary: #888888;   /* labels, metadata */
+  --text-muted:     #444444;   /* placeholders, disabled */
+
+  --accent:         #e8ff47;   /* sharp yellow-green — primary CTA only */
+  --accent-dim:     #b8cc38;   /* accent hover */
+
+  --red:            #ff4444;   /* errors, delete */
+  --green:          #44ff88;   /* success, verified */
+  --blue:           #4488ff;   /* info, links */
+  --orange:         #ff8844;   /* warnings, low confidence */
+
+  --font-display:   'DM Mono', monospace;   /* headings, logo */
+  --font-body:      'Geist', sans-serif;    /* body text, UI */
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@theme {
+  --color-bg-base: var(--bg-base);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-border: var(--bg-border);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-dim: var(--accent-dim);
+  --color-red: var(--red);
+  --color-green: var(--green);
+  --color-blue: var(--blue);
+  --color-orange: var(--orange);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--text-secondary);
+}
+
+/* Custom Grid Pattern for Login Page */
+.grid-pattern {
+  background-image: linear-gradient(var(--bg-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--bg-border) 1px, transparent 1px);
+  background-size: 40px 40px;
 }
