@@ -1,46 +1,53 @@
 export type Project = {
   id: string
+  created_at: string
   name: string
   description: string | null
-  created_by: string
-  created_at: string
-  updated_at: string
-  record_count?: number
+  user_id: string
+  type: string | null
 }
 
 export type Record = {
   id: string
   project_id: string
+  created_at: string
   title: string | null
-  file_path: string | null
-  format: string | null
-  input_type: 'csv' | 'image' | 'typed_pdf' | 'free_text'
+  raw_content: string | null
+  content: string | null
+  input_type: string
   record_type: string | null
-  ocr_text: string | null
-  ai_summary: string | null
-  ai_classification: string | null
-  key_fields: { [key: string]: string } | null
-  language: string
+  summary: string | null
+  metadata: Record<string, unknown> | null
   confidence: number | null
-  error_flag: boolean
-  error_message: string | null
+  status: string | null
   is_verified: boolean
-  access_level: string
+  file_path: string | null
   uploaded_by: string
-  date_digitized: string
-  updated_at: string
+}
+
+export type RecordChunk = {
+  id: string
+  record_id: string
+  project_id: string
+  content: string
+  embedding: number[]
+  chunk_index: number
+  source_page: number | null
+  source_position: number | null
+  created_at: string
 }
 
 export type ChatMessage = {
   id: string
   project_id: string
   user_id: string
-  role: 'user' | 'assistant'
+  role: "user" | "assistant"
   content: string
+  agent_steps: unknown | null
   created_at: string
 }
 
-export type InputType = 'csv' | 'image' | 'typed_pdf' | 'free_text'
-export type RecordType = 'legal' | 'medical' | 'financial' | 'personal' | 'public' | 'identity'
-export type ExportFormat = 'csv' | 'json' | 'pdf'
-export type ToastType = 'success' | 'error' | 'info' | 'warning'
+export type InputType = "pdf" | "image" | "csv" | "text"
+export type RecordType = "legal" | "medical" | "financial" | "personal" | "public" | "identity"
+export type ExportFormat = "csv" | "json" | "pdf"
+export type ToastType = "success" | "error" | "info" | "warning"

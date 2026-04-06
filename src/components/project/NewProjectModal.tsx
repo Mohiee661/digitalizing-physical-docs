@@ -22,13 +22,13 @@ export default function NewProjectModal({ isOpen, onClose }: NewProjectModalProp
     
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      if (!user) throw new Error("User not authenticated")
 
       const { error } = await supabase
         .from('projects')
         .insert({ 
-          name, 
-          created_by: user.id 
+          name,
+          user_id: user.id,
         })
 
       if (error) throw error
@@ -37,7 +37,7 @@ export default function NewProjectModal({ isOpen, onClose }: NewProjectModalProp
       onClose()
       router.refresh()
     } catch (error) {
-      console.error("Error creating project:", error)
+      console.error("Error creating project:", JSON.stringify(error, null, 2))
       alert("Failed to create project")
     } finally {
       setLoading(false)

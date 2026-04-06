@@ -9,11 +9,19 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import Badge from "@/components/ui/Badge"
+import DocumentPreview from "@/components/ui/DocumentPreview"
+import ChunkedContent from "@/components/ui/ChunkedContent"
+import ReprocessButton from "@/components/ui/ReprocessButton"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 
-export default async function RecordDetailPage({ params }: { params: Promise<{ id: string, recordId: string }> }) {
+export default async function RecordDetailPage({ params, searchParams }: { 
+  params: Promise<{ id: string, recordId: string }>,
+  searchParams: Promise<{ chunk?: string }>
+}) {
   const { id, recordId } = await params
+  const { chunk } = await searchParams
+  const highlightChunk = chunk !== undefined ? parseInt(chunk, 10) : null
   const supabase = await createClient()
   
   const { data: { user } } = await supabase.auth.getUser()
@@ -26,6 +34,22 @@ export default async function RecordDetailPage({ params }: { params: Promise<{ i
     .single()
 
   if (!record) redirect(`/projects/${id}`)
+
+  // Fetch chunks for this record
+  const { data: chunks } = await supabase
+    .from("record_chunks")
+    .select("chunk_index, content")
+    .eq("record_id", recordId)
+    .order("chunk_index", { ascending: true })
+
+  // Generate signed URL for file preview if applicable
+  let signedUrl: string | null = null
+  if (record.file_path && (record.input_type === "pdf" || record.input_type === "image")) {
+    const { data: signed } = await supabase.storage
+      .from("documents")
+      .createSignedUrl(record.file_path, 60 * 60) // 1 hour
+    signedUrl = signed?.signedUrl ?? null
+  }
 
   return (
     <main className="min-h-screen flex flex-col bg-bg-base">
@@ -45,6 +69,7 @@ export default async function RecordDetailPage({ params }: { params: Promise<{ i
         </div>
 
         <div className="flex items-center gap-3">
+          <ReprocessButton recordId={recordId} />
           <button className="flex items-center gap-2 bg-bg-surface border border-bg-border px-4 py-2 rounded-md text-xs font-bold hover:bg-bg-elevated transition-colors">
             <Download className="w-4 h-4" />
             Download
@@ -96,21 +121,21 @@ export default async function RecordDetailPage({ params }: { params: Promise<{ i
             <section>
               <h2 className="font-display text-[11px] uppercase tracking-[2px] text-text-secondary mb-6">Extracted Fields</h2>
               <div className="space-y-4">
-                {record.key_fields ? Object.entries(record.key_fields).map(([key, value]) => (
+                {record.metadata ? Object.entries(record.metadata as Record<string, string>).map(([key, value]) => (
                   <div key={key} className="flex justify-between items-center border-b border-bg-border/50 pb-3">
                     <span className="text-text-secondary text-sm">{key}</span>
-                    <span className="text-text-primary text-sm font-medium">{value as string}</span>
+                    <span className="text-text-primary text-sm font-medium">{value}</span>
                   </div>
                 )) : (
-                  <p className="text-xs text-text-muted">No key fields extracted.</p>
+                  <p className="text-xs text-text-muted">No metadata extracted.</p>
                 )}
               </div>
             </section>
 
             <section>
-              <h2 className="font-display text-[11px] uppercase tracking-[2px] text-text-secondary mb-4">AI Insight</h2>
+              <h2 className="font-display text-[11px] uppercase tracking-[2px] text-text-secondary mb-4">AI Summary</h2>
               <p className="text-sm text-text-secondary leading-relaxed bg-bg-base p-4 rounded-lg border border-bg-border">
-                {record.ai_summary || "No summary available."}
+                {record.summary || "No summary available."}
               </p>
             </section>
 
@@ -118,7 +143,7 @@ export default async function RecordDetailPage({ params }: { params: Promise<{ i
               <div className="flex items-center gap-3 text-text-muted">
                 <Clock className="w-4 h-4" />
                 <span className="text-xs uppercase tracking-wider">
-                  {new Date(record.date_digitized).toLocaleString()}
+                  {new Date(record.created_at).toLocaleString()}
                 </span>
               </div>
             </section>
@@ -133,9 +158,16 @@ export default async function RecordDetailPage({ params }: { params: Promise<{ i
                   <Copy className="w-4 h-4" />
                 </button>
               </div>
-              <pre className="font-mono text-sm leading-relaxed text-text-secondary whitespace-pre-wrap p-8 bg-bg-surface border border-bg-border rounded-xl">
-                {record.ocr_text || "No OCR text found."}
-              </pre>
+
+              {signedUrl && (
+                <div className="mb-8">
+                  <DocumentPreview signedUrl={signedUrl} inputType={record.input_type} />
+                </div>
+              )}
+              <ChunkedContent
+                chunks={chunks ?? []}
+                highlightChunk={highlightChunk}
+              />
             </div>
           </div>
         </div>

@@ -1,5 +1,4 @@
-import Link from "next/link"
-import { Plus, User, LogOut } from "lucide-react"
+import { LogOut } from "lucide-react"
 import ProjectCard from "@/components/project/ProjectCard"
 import NewProjectForm from "@/components/project/NewProjectForm"
 import { createClient } from "@/lib/supabase/server"
@@ -16,7 +15,7 @@ export default async function Dashboard() {
   const { data: projects } = await supabase
     .from('projects')
     .select('*')
-    .eq('created_by', user.id)
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
   const handleLogout = async () => {
@@ -60,14 +59,22 @@ export default async function Dashboard() {
         </div>
 
         {projects && projects.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {(projects as any[]).map((project: any) => (
               <ProjectCard key={project.id} project={project} />
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center py-24 border-2 border-dashed border-bg-border rounded-xl bg-bg-surface/30">
-            <p className="text-text-secondary mb-4">No projects yet</p>
+          <div className="flex flex-col items-center justify-center py-24 border-2 border-dashed border-bg-border rounded-2xl bg-bg-surface/20 gap-4">
+            <div className="p-5 bg-bg-elevated rounded-2xl border border-bg-border">
+              <svg className="w-10 h-10 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+              </svg>
+            </div>
+            <div className="text-center">
+              <p className="text-text-secondary font-medium mb-1">No projects yet</p>
+              <p className="text-text-muted text-xs">Create a project to start digitizing your documents</p>
+            </div>
             <NewProjectForm label="Create your first project" />
           </div>
         )}
