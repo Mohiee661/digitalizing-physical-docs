@@ -89,14 +89,7 @@ async function retrieveChunks(
 
 // ─── Prompt ──────────────────────────────────────────────────────────────────
 
-async function buildPrompt(supabase: ReturnType<typeof createAdminClient>, project_id: string, chunks: Chunk[], memory: string, question: string, hasContext: boolean): Promise<string> {
-  // Fetch basic metadata about what files are in this project
-  const { data: recordsData } = await supabase
-    .from("records")
-    .select("id, title, record_type, status")
-    .eq("project_id", project_id);
-    
-  const recordsMap = new Map(recordsData?.map(r => [r.id, r.title]) || []);
+async function buildPrompt(chunks: Chunk[], memory: string, question: string, hasContext: boolean, recordsData: any[], recordsMap: Map<string, string>): Promise<string> {
   const projectDocsContext = recordsData?.length
     ? `\nOverview of uploaded documents in this project:\n` + recordsData.map(r => `- ${r.title} (${r.record_type}, Status: ${r.status})`).join("\n")
     : "\nNo documents are currently uploaded to this project.";
@@ -176,9 +169,17 @@ export async function POST(req: NextRequest) {
     const chunks = await retrieveChunks(supabase, project_id, question)
     const hasContext = chunks.length > 0
 
-    // 2. Build context + prompt
+    // 2. Fetch records to map IDs to Titles
+    const { data: recordsData } = await supabase
+      .from("records")
+      .select("id, title, record_type, status")
+      .eq("project_id", project_id);
+      
+    const recordsMap = new Map(recordsData?.map(r => [r.id, r.title]) || []);
+
+    // 3. Build context + prompt
     const memory = buildMemoryBlock(await fetchMemory(supabase, project_id, user.id))
-    const prompt = await buildPrompt(supabase, project_id, chunks, memory, question, hasContext)
+    const prompt = await buildPrompt(chunks, memory, question, hasContext, recordsData || [], recordsMap)
 
     // 3. Call Groq
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
