@@ -169,25 +169,78 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "project_id and question are required" }, { status: 400 })
     }
 
-    // 1. Retrieve relevant chunks
-    const chunks = await retrieveChunks(supabase, project_id, question)
-    const hasContext = chunks.length > 0
-
-    // 2. Fetch records to map IDs to Titles
     const { data: recordsData } = await supabase
       .from("records")
       .select("id, title, record_type, status")
       .eq("project_id", project_id);
-      
+    
     const recordsMap = new Map(recordsData?.map(r => [r.id, r.title]) || []);
 
-    // 3. Build context + prompt
-    const memory = buildMemoryBlock(await fetchMemory(supabase, project_id, user.id))
+    const history = await fetchMemory(supabase, project_id, user.id)
+    
+    // 1. Condense Question (Groq)
+    // If there is history, rephrase the question to be standalone for RAG
+    let standaloneQuestion = question
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+
+    if (history.length > 0) {
+      try {
+        const condenseResponse = await groq.chat.completions.create({
+          model: "llama-3.1-8b-instant",
+          messages: [
+            {
+              role: "system",
+              content: `You are an assistant that reformulates user questions to be standalone retrieval queries. 
+Given the conversation history and the latest user question, rephrase the question so it can be used for document retrieval without needing the history. 
+If the question is already standalone, return it as is. 
+Only return the rephrased question text.`
+            },
+            {
+              role: "user",
+              content: `History:\n${history.map(m => `${m.role}: ${m.content}`).join("\n")}\n\nQuestion: ${question}`
+            }
+          ]
+        })
+        standaloneQuestion = condenseResponse.choices[0]?.message?.content?.trim() || question
+      } catch (e) {
+        console.error("[chat] Condense failed:", e)
+      }
+    }
+
+    // 2. Retrieve relevant chunks (using standalone question)
+    let chunks = await retrieveChunks(supabase, project_id, standaloneQuestion)
+
+    // 2.1 Keyword Boost: Check if the question refers to specific documents or types
+    const lowerQ = standaloneQuestion.toLowerCase()
+    const matchingRecordIds = recordsData?.filter(r => {
+      const title = (r.title || "").toLowerCase()
+      const type = (r.record_type || "").toLowerCase()
+      return lowerQ.includes(title) || lowerQ.includes(type) || (title.includes("med") && lowerQ.includes("medical"))
+    }).map(r => r.id) || []
+
+    if (matchingRecordIds.length > 0) {
+      const { data: extraChunks } = await supabase
+        .from("record_chunks")
+        .select("record_id, chunk_index, content")
+        .in("record_id", matchingRecordIds)
+        .limit(5)
+      
+      if (extraChunks) {
+        // Merge without duplicates
+        const existingIds = new Set(chunks.map(c => `${c.record_id}-${c.chunk_index}`))
+        extraChunks.forEach(ec => {
+          if (!existingIds.has(`${ec.record_id}-${ec.chunk_index}`)) {
+            chunks.push({ ...ec, similarity: 0.9 })
+          }
+        })
+      }
+    }
+
+    const hasContext = chunks.length > 0
+    const memory = buildMemoryBlock(history)
     const prompt = await buildPrompt(project_id, chunks, memory, question, hasContext, recordsData || [], recordsMap)
 
     // 3. Call Groq
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
-
     const completion = await groq.chat.completions.create({
       model: "llama-3.1-8b-instant",
       messages: [{ role: "user", content: prompt }],
