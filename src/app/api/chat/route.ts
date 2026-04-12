@@ -91,7 +91,10 @@ async function retrieveChunks(
 
 async function buildPrompt(project_id: string, chunks: Chunk[], memory: string, question: string, hasContext: boolean, recordsData: any[], recordsMap: Map<string, string>): Promise<string> {
   const projectDocsContext = recordsData?.length
-    ? `\nOverview of uploaded documents in this project:\n` + recordsData.map(r => `- ${r.title} (${r.record_type}, Status: ${r.status})`).join("\n")
+    ? `\nOverview of uploaded documents in this project:\n` + recordsData.map(r => {
+        const desc = r.summary ? `Summary: ${r.summary}` : "No summary available."
+        return `- ${r.title} (Category: ${r.record_type})\n  ${desc}`
+      }).join("\n")
     : "\nNo documents are currently uploaded to this project.";
 
   // Generate context string with titles
@@ -132,6 +135,8 @@ CRITICAL RULES:
 4. DO NOT say "I cannot provide the document" or "I am unable to provide it". You DO have the files!
 5. When a user asks to see, get, view, or download the document, you MUST reply with the markdown link using the Download Link provided in the text extracts. Example: "Here is your document: [Download ML Certificate 2](/api/download/...)"
 6. Always embed these links inline naturally within your response. DO NOT create "Sources" or "[1]" footnotes at the bottom.
+7. PRIORITIZE DOCUMENT CONTENT: Do not guess, assume, or expand ambiguous acronyms (like "ML", "ID", "PT") based on the project category. Only speak about what is explicitly written in the document summary or text extracts. If a document title says "ML" but the text says "Machine Learning", call it a "Machine Learning Certificate", not a "Medical Lab" certificate.
+8. FOCUS ON INTENT: Use the "Category" label only for high-level organization. If a document is categorized as "Identity" but is clearly a "Course Completion Certificate", refer to it correctly based on its contents.
 
 ----------------------------------------
 Project Overview:
@@ -171,7 +176,7 @@ export async function POST(req: NextRequest) {
 
     const { data: recordsData } = await supabase
       .from("records")
-      .select("id, title, record_type, status")
+      .select("id, title, record_type, status, summary")
       .eq("project_id", project_id);
     
     const recordsMap = new Map(recordsData?.map(r => [r.id, r.title]) || []);

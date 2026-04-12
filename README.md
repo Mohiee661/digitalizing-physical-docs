@@ -32,6 +32,8 @@ RecordsVault is an autonomous document digitization, management, and RAG-powered
    npm install
    ```
 
+
+
 3. **Set up Environment Variables**
    Create a `.env.local` file with your remote credentials:
    ```env
