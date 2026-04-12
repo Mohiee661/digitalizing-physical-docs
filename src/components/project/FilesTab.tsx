@@ -28,6 +28,8 @@ interface FilesTabProps {
 
 export default function FilesTab({ projectId, initialRecords, searchQuery }: FilesTabProps) {
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [filterType, setFilterType] = useState<string>("all")
+  const [minConfidence, setMinConfidence] = useState<number>(0)
   const router = useRouter()
 
   const getConfidenceColor = (score: number) => {
@@ -39,6 +41,16 @@ export default function FilesTab({ projectId, initialRecords, searchQuery }: Fil
   const handleUploadSuccess = useCallback(() => {
     router.refresh()
   }, [router])
+
+
+  const filteredRecords = initialRecords.filter((rec) => {
+    const typeMatch = filterType === "all" || rec.record_type === filterType
+    const confMatch = (rec.confidence || 0) >= minConfidence
+    
+    // Search is handled by server via defaultValue/query params, 
+    // but just for client-side sorting we pass both
+    return typeMatch && confMatch
+  })
 
   return (
     <>
@@ -57,14 +69,31 @@ export default function FilesTab({ projectId, initialRecords, searchQuery }: Fil
           </form>
 
           <div className="flex gap-2 w-full md:w-auto">
-            <button className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-bg-surface border border-bg-border px-4 py-2.5 rounded-md text-sm font-medium hover:bg-bg-elevated transition-colors">
-              <Filter className="w-4 h-4" />
-              Filter
-            </button>
-            <button className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-bg-surface border border-bg-border px-4 py-2.5 rounded-md text-sm font-medium hover:bg-bg-elevated transition-colors">
-              <Type className="w-4 h-4" />
-              Type
-            </button>
+            <select
+              title="Filter by Confidence"
+              value={minConfidence.toString()}
+              onChange={(e) => setMinConfidence(Number(e.target.value))}
+              className="flex-1 md:flex-none flex items-center justify-center bg-bg-surface border border-bg-border px-4 py-2.5 rounded-md text-sm font-medium hover:bg-bg-elevated focus:outline-none transition-colors"
+            >
+              <option value="0">All Confidences</option>
+              <option value="0.5">Medium+ (&ge;50%)</option>
+              <option value="0.8">High+ (&ge;80%)</option>
+            </select>
+            <select
+              title="Filter by Type"
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="flex-1 md:flex-none flex items-center justify-center bg-bg-surface border border-bg-border px-4 py-2.5 rounded-md text-sm font-medium hover:bg-bg-elevated focus:outline-none transition-colors"
+            >
+              <option value="all">All Types</option>
+              <option value="identity">Identity</option>
+              <option value="legal">Legal</option>
+              <option value="medical">Medical</option>
+              <option value="financial">Financial</option>
+              <option value="personal">Personal</option>
+              <option value="public">Public</option>
+              <option value="unclassified">Unclassified</option>
+            </select>
             <button
               onClick={() => setUploadOpen(true)}
               className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-accent hover:bg-accent-dim text-bg-base px-4 py-2.5 rounded-md text-sm font-bold transition-all active:scale-95"
@@ -89,7 +118,7 @@ export default function FilesTab({ projectId, initialRecords, searchQuery }: Fil
                 </tr>
               </thead>
               <tbody className="divide-y divide-bg-border">
-                {initialRecords.length > 0 ? initialRecords.map((record) => (
+                {filteredRecords.length > 0 ? filteredRecords.map((record) => (
                   <tr key={record.id} className="hover:bg-bg-elevated/40 transition-colors cursor-pointer group">
                     <td className="px-6 py-4">
                       <Link href={`/projects/${projectId}/records/${record.id}`} className="flex items-center gap-3">
@@ -107,7 +136,7 @@ export default function FilesTab({ projectId, initialRecords, searchQuery }: Fil
                       </Link>
                     </td>
                     <td className="px-6 py-4">
-                      <Badge variant={record.record_type as any}>{record.record_type || "unclassified"}</Badge>
+                      <Badge variant={(record.record_type as any) || "unclassified"}>{record.record_type || "unclassified"}</Badge>
                     </td>
                     <td className="px-6 py-4">
                       <div className="w-24">
