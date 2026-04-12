@@ -22,6 +22,7 @@ const VARIANT_MAP: Record<string, string> = {
   personal: "border-orange/30 text-orange bg-orange/5",
   public: "border-bg-border text-text-secondary bg-bg-elevated",
   identity: "border-accent/30 text-accent bg-accent/5",
+  education: "border-blue/30 text-blue bg-blue/5",
   unclassified: "border-bg-border text-text-muted bg-bg-elevated",
 }
 

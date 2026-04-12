@@ -4,6 +4,9 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { generateEmbedding } from "@/lib/embedding"
 import Groq from "groq-sdk"
 
+export type InputType = "pdf" | "image" | "csv" | "text"
+export type RecordType = "legal" | "medical" | "financial" | "personal" | "public" | "identity" | "education"
+
 type Chunk = {
   record_id: string
   chunk_index: number
@@ -135,8 +138,9 @@ CRITICAL RULES:
 4. DO NOT say "I cannot provide the document" or "I am unable to provide it". You DO have the files!
 5. When a user asks to see, get, view, or download the document, you MUST reply with the markdown link using the Download Link provided in the text extracts. Example: "Here is your document: [Download ML Certificate 2](/api/download/...)"
 6. Always embed these links inline naturally within your response. DO NOT create "Sources" or "[1]" footnotes at the bottom.
-7. PRIORITIZE DOCUMENT CONTENT: Do not guess, assume, or expand ambiguous acronyms (like "ML", "ID", "PT") based on the project category. Only speak about what is explicitly written in the document summary or text extracts. If a document title says "ML" but the text says "Machine Learning", call it a "Machine Learning Certificate", not a "Medical Lab" certificate.
-8. FOCUS ON INTENT: Use the "Category" label only for high-level organization. If a document is categorized as "Identity" but is clearly a "Course Completion Certificate", refer to it correctly based on its contents.
+7. CLEAN OUTPUT: Avoid excessive use of markdown formatting like bold asterisks (**), nested bullet points, or complex tables unless explicitly requested. Prefer clean, natural, fluid paragraphs that are easy to read.
+8. PRIORITIZE DOCUMENT CONTENT: Do not guess, assume, or expand ambiguous acronyms (like "ML", "ID", "PT") based on the project category. Only speak about what is explicitly written in the document summary or text extracts. If a document title says "ML" but the text says "Machine Learning", call it a "Machine Learning Certificate", not a "Medical Lab" certificate.
+9. FOCUS ON INTENT: Use the "Category" label only for high-level organization. If a document is categorized as "Identity" but is clearly a "Course Completion Certificate", refer to it correctly based on its contents. Education records (certificates, degrees, results) should be treated with academic context.
 
 ----------------------------------------
 Project Overview:

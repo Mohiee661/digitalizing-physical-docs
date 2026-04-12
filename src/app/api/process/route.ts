@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
         messages: [
           {
             role: "system",
-            content: "You are a strict document classifier. Output valid JSON with strictly two keys: 'record_type' (exactly one of: legal, medical, financial, personal, public, identity) and 'confidence' (an integer from 0 to 100). No markdown formatting or extra text."
+            content: "You are a strict document classifier. Output valid JSON with strictly two keys: 'record_type' (exactly one of: legal, medical, financial, personal, public, identity, education) and 'confidence' (an integer from 0 to 100). No markdown formatting or extra text."
           },
           {
             role: "user",

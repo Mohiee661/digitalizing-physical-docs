@@ -48,6 +48,6 @@ export type ChatMessage = {
 }
 
 export type InputType = "pdf" | "image" | "csv" | "text"
-export type RecordType = "legal" | "medical" | "financial" | "personal" | "public" | "identity"
+export type RecordType = "legal" | "medical" | "financial" | "personal" | "public" | "identity" | "education"
 export type ExportFormat = "csv" | "json" | "pdf"
 export type ToastType = "success" | "error" | "info" | "warning"
