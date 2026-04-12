@@ -100,7 +100,8 @@ async function buildPrompt(chunks: Chunk[], memory: string, question: string, ha
     for (let i = 0; i < chunks.length; i++) {
       const { record_id, chunk_index, content } = chunks[i]
       const title = recordsMap.get(record_id) || "Unknown Document"
-      const entry = `Document Title: ${title}\nText Passage:\n${content}\n\n`
+      const docLink = `/projects/${project_id}/records/${record_id}?chunk=${chunk_index}`
+      const entry = `Document Title: ${title}\nDirect Link: ${docLink}\nText Passage:\n${content}\n\n`
       if ((context + entry).length > 12000) break
       context += entry
     }
@@ -128,6 +129,7 @@ CRITICAL RULES:
 2. DO NOT quote raw, unformatted, or badly OCR'd text (with lots of spaces/symbols). Instead, read the raw text and seamlessly paraphrase or reformat it into clean, readable sentences.
 3. Keep your answers concise, human-friendly, and professional. Synthesize the info—don't just spit out a bulleted list of raw data.
 4. Don't say "I extracted the following content". Just provide the answer.
+5. You MUST actively cite the documents inline using markdown links mapped to the exact Direct Link provided. E.g. "According to your [Ml Certificate 2](/projects/...)" -> Do NOT put links at the bottom, securely embed them inside your conversational sentences.
 
 ----------------------------------------
 Project Overview:
@@ -194,13 +196,7 @@ export async function POST(req: NextRequest) {
     // 4. Save chat messages
     await saveMessages(supabase, project_id, user.id, question, answer)
 
-    const sources = chunks.map(({ record_id, chunk_index }) => ({ 
-      record_id, 
-      chunk_index, 
-      title: recordsMap.get(record_id) || "Unknown Document" 
-    }))
-
-    return NextResponse.json({ answer, sources })
+    return NextResponse.json({ answer, sources: [] })
   } catch (err) {
     console.error("[chat] Error:", err)
     return NextResponse.json({ 
@@ -225,5 +221,47 @@ async function saveMessages(
   ])
   if (error) {
     console.error("[chat] Failed to save messages:", error.message)
+  }
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const userSupabase = await createClient()
+    const { data: { user } } = await userSupabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+    const { searchParams } = new URL(req.url)
+    const project_id = searchParams.get("project_id")
+    if (!project_id) return NextResponse.json({ error: "project_id required" }, { status: 400 })
+
+    const supabase = createAdminClient()
+    const { data } = await supabase
+      .from("chat_messages")
+      .select("role, content")
+      .eq("project_id", project_id)
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true })
+
+    return NextResponse.json({ messages: data || [] })
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to fetch messages" }, { status: 500 })
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const userSupabase = await createClient()
+    const { data: { user } } = await userSupabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+    const { searchParams } = new URL(req.url)
+    const project_id = searchParams.get("project_id")
+    if (!project_id) return NextResponse.json({ error: "project_id required" }, { status: 400 })
+
+    const supabase = createAdminClient()
+    await supabase.from("chat_messages").delete().eq("project_id", project_id).eq("user_id", user.id)
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to clear messages" }, { status: 500 })
   }
 }

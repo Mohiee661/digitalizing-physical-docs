@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Send, Loader2, MessageSquare } from "lucide-react"
+import { Send, Loader2, MessageSquare, Trash } from "lucide-react"
 
 type Source = { record_id: string; chunk_index: number; title?: string }
 
@@ -17,9 +17,39 @@ export default function ChatPanel({ projectId, projectName }: { projectId: strin
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
+  // Fetch old messages on mount
+  useEffect(() => {
+    fetch(`/api/chat?project_id=${projectId}`)
+      .then(res => res.json())
+      .then(data => setMessages(data.messages || []))
+      .catch(console.error)
+  }, [projectId])
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
+
+  const clearChat = async () => {
+    if (!confirm("Are you sure you want to clear the chat history?")) return
+    setMessages([])
+    await fetch(`/api/chat?project_id=${projectId}`, { method: "DELETE" })
+  }
+
+  // Parses basic [Text](url) markdown to actual clickable links
+  const renderMessageContent = (text: string) => {
+    const parts = text.split(/(\[.*?\]\(.*?\))/g);
+    return parts.map((part, i) => {
+      const match = part.match(/\[(.*?)\]\((.*?)\)/);
+      if (match) {
+        return (
+          <a key={i} href={match[2]} target="_blank" rel="noopener noreferrer" className="text-blue hover:text-accent underline font-medium">
+            {match[1]}
+          </a>
+        );
+      }
+      return <span key={i}>{part}</span>;
+    });
+  }
 
   const send = async () => {
     const question = input.trim()
@@ -78,31 +108,13 @@ export default function ChatPanel({ projectId, projectName }: { projectId: strin
               </div>
             )}
             <div className={`max-w-[85%] md:max-w-[75%] flex flex-col gap-1.5 ${msg.role === "user" ? "items-end" : "items-start"}`}>
-              <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+              <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words ${
                 msg.role === "user"
                   ? "bg-accent text-bg-base rounded-br-none"
                   : "bg-bg-base border border-bg-border text-text-primary rounded-tl-none"
               }`}>
-                {msg.content}
+                {renderMessageContent(msg.content)}
               </div>
-
-              {/* Citations */}
-              {msg.sources && msg.sources.length > 0 && (
-                <div className="px-1 space-y-0.5">
-                  <p className="text-[10px] uppercase tracking-widest text-text-muted">Sources</p>
-                  {msg.sources.map((s, si) => (
-                    <a
-                      key={si}
-                      href={`/projects/${projectId}/records/${s.record_id}?chunk=${s.chunk_index}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block text-[11px] text-text-muted font-mono hover:text-accent transition-colors"
-                    >
-                      — {s.title || `Doc ${s.record_id.slice(0, 8)}…`}
-                    </a>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         ))}
@@ -123,9 +135,17 @@ export default function ChatPanel({ projectId, projectName }: { projectId: strin
 
       {/* Input */}
       <div className="p-4 md:p-5 border-t border-bg-border bg-bg-surface">
-        <div className="flex gap-2">
-          <textarea
-            value={input}
+          <div className="flex gap-2">
+            <button
+              onClick={clearChat}
+              disabled={loading || messages.length === 0}
+              className="p-2.5 bg-bg-elevated border border-bg-border text-text-muted rounded-lg hover:text-red hover:border-red/30 transition-colors shrink-0 disabled:opacity-40"
+              title="Clear chat"
+            >
+              <Trash className="w-4 h-4" />
+            </button>
+            <textarea
+              value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
