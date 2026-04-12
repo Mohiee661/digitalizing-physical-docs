@@ -108,12 +108,6 @@ export async function POST(req: NextRequest) {
       .update({ raw_content: extractedText, status: "extracted" })
       .eq("id", record_id)
 
-    // 4. Image — needs human review, stop here
-    if (record.input_type === "image") {
-      await supabase.from("records").update({ status: "needs_review" }).eq("id", record_id)
-      return NextResponse.json({ message: "Image OCR complete. Marked needs_review." })
-    }
-
     // 5. Summarize and Classify via Groq
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
