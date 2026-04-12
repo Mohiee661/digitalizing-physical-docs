@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import Groq from "groq-sdk"
 import { generateEmbedding } from "@/lib/embedding"
-import { PDFParse } from "pdf-parse"
-import Tesseract from "tesseract.js"
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -11,7 +10,7 @@ async function extractText(
   input_type: string,
   raw_content: string | null,
   file_path: string | null,
-  supabase: Awaited<ReturnType<typeof createClient>>
+  supabase: ReturnType<typeof createAdminClient>
 ): Promise<string> {
   if (input_type === "text") {
     if (!raw_content) throw new Error("raw_content is empty for text record")
@@ -27,6 +26,7 @@ async function extractText(
   if (error || !fileData) throw new Error(`Storage download failed: ${error?.message}`)
 
   if (input_type === "pdf") {
+    const { PDFParse } = await import("pdf-parse")
     const buffer = Buffer.from(await fileData.arrayBuffer())
     const parser = new PDFParse({ data: buffer })
     const result = await parser.getText()
@@ -34,6 +34,7 @@ async function extractText(
   }
 
   if (input_type === "image") {
+    const Tesseract = (await import("tesseract.js")).default
     const buffer = Buffer.from(await fileData.arrayBuffer())
     if (buffer.byteLength > 5 * 1024 * 1024) {
       throw new Error("Image too large for OCR")
@@ -53,12 +54,18 @@ function chunkText(text: string, size = 800): string[] {
   return chunks
 }
 
-// Cached extractor and embedding are handled in @/lib/embedding
-
 // ─── Route ──────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
+  // Auth check using the user-scoped client
+  const userSupabase = await createClient()
+  const { data: { user }, error: authError } = await userSupabase.auth.getUser()
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  // Use admin client for all DB operations (bypasses RLS)
+  const supabase = createAdminClient()
 
   let record_id: string | undefined
 
@@ -107,9 +114,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Image OCR complete. Marked needs_review." })
     }
 
-    // 5. Summarize via Groq
+    // 5. Summarize and Classify via Groq
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
+    // A. Generate Summary
     const completion = await groq.chat.completions.create({
       model: "llama-3.1-8b-instant",
       messages: [
@@ -119,12 +127,39 @@ export async function POST(req: NextRequest) {
         },
       ],
     })
-
     const summary = completion.choices[0]?.message?.content ?? ""
 
-    await supabase.from("records").update({ summary }).eq("id", record_id)
+    // B. Classify Document
+    let record_type = "public"
+    let confidence = 0
+    try {
+      const classCompletion = await groq.chat.completions.create({
+        model: "llama-3.1-8b-instant",
+        messages: [
+          {
+            role: "system",
+            content: "You are a strict document classifier. Output valid JSON with strictly two keys: 'record_type' (exactly one of: legal, medical, financial, personal, public, identity) and 'confidence' (an integer from 0 to 100). No markdown formatting or extra text."
+          },
+          {
+            role: "user",
+            content: `Classify this document based on the following text content:\n\n${extractedText.substring(0, 4000)}` 
+          }
+        ],
+        response_format: { type: "json_object" }
+      })
+      
+      const parsed = JSON.parse(classCompletion.choices[0]?.message?.content ?? "{}")
+      if (parsed.record_type) record_type = parsed.record_type.toLowerCase()
+      // Store confidence as 0-1 float to match what the UI expects
+      if (typeof parsed.confidence === "number") confidence = parsed.confidence / 100
+    } catch (e) {
+      console.error("[process] Classification failed, using defaults", e)
+    }
 
-    // 6. Clean + chunk + embed in parallel + store
+    // Update record with summary and classification
+    await supabase.from("records").update({ summary, record_type, confidence }).eq("id", record_id)
+
+    // 6. Clean + chunk + embed + store
     const cleanedText = extractedText.replace(/\s+/g, " ").trim()
     const chunks = chunkText(cleanedText).slice(0, 50)
 
@@ -138,8 +173,14 @@ export async function POST(req: NextRequest) {
       chunk_index: index,
     }))
 
+    // Delete old chunks before inserting new (for reprocess)
+    await supabase.from("record_chunks").delete().eq("record_id", record_id)
+
     const { error: chunkError } = await supabase.from("record_chunks").insert(chunkRows)
-    if (chunkError) throw new Error(`Chunk insert failed: ${chunkError.message}`)
+    if (chunkError) {
+      console.error("[process] Chunk insert failed:", chunkError.message)
+      // Don't crash — record still has summary + classification
+    }
 
     // 7. Final update
     await supabase
@@ -153,8 +194,9 @@ export async function POST(req: NextRequest) {
     console.error("[process] Error:", message, err)
 
     if (record_id) {
-      const supabaseErr = await createClient()
-      await supabaseErr.from("records").update({ status: "error" }).eq("id", record_id)
+      try {
+        await supabase.from("records").update({ status: "error" }).eq("id", record_id)
+      } catch { /* best effort */ }
     }
 
     return NextResponse.json({ error: message }, { status: 500 })

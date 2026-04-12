@@ -18,6 +18,21 @@ export default function UploadModal({ projectId, onClose, onSuccess }: UploadMod
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState("")
 
+  const resetForm = () => {
+    setMode("file")
+    setTitle("")
+    setFile(null)
+    setRawContent("")
+    setStatus("")
+  }
+
+  const handleClose = () => {
+    if (!loading) {
+      resetForm()
+      onClose()
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return
@@ -61,7 +76,7 @@ export default function UploadModal({ projectId, onClose, onSuccess }: UploadMod
       }).catch((err) => console.error("Process error:", err))
 
       onSuccess()
-      onClose()
+      handleClose()
     } catch (err) {
       console.error("Upload error:", err)
       alert(err instanceof Error ? err.message : "Upload failed")
@@ -72,7 +87,7 @@ export default function UploadModal({ projectId, onClose, onSuccess }: UploadMod
   }
 
   return (
-    <Modal isOpen onClose={onClose} title="Upload Document">
+    <Modal isOpen onClose={handleClose} title="Upload Document">
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Mode toggle */}
         <div className="flex gap-2 p-1 bg-bg-elevated rounded-lg border border-bg-border">
@@ -143,7 +158,7 @@ export default function UploadModal({ projectId, onClose, onSuccess }: UploadMod
         <div className="flex gap-3 justify-end pt-1">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             disabled={loading}
             className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors font-medium"
           >

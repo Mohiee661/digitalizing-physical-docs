@@ -78,7 +78,7 @@ export default function ChatPanel({ projectId, projectName }: { projectId: strin
               </div>
             )}
             <div className={`max-w-[85%] md:max-w-[75%] flex flex-col gap-1.5 ${msg.role === "user" ? "items-end" : "items-start"}`}>
-              <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+              <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
                 msg.role === "user"
                   ? "bg-accent text-bg-base rounded-br-none"
                   : "bg-bg-base border border-bg-border text-text-primary rounded-tl-none"
@@ -124,14 +124,19 @@ export default function ChatPanel({ projectId, projectName }: { projectId: strin
       {/* Input */}
       <div className="p-4 md:p-5 border-t border-bg-border bg-bg-surface">
         <div className="flex gap-2">
-          <input
-            type="text"
+          <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && send()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault()
+                send()
+              }
+            }}
             placeholder="Ask about your project..."
             disabled={loading}
-            className="flex-1 bg-bg-elevated border border-bg-border rounded-lg px-4 py-2.5 text-sm text-text-primary focus:outline-none focus:border-accent transition-colors placeholder:text-text-muted disabled:opacity-50"
+            rows={1}
+            className="flex-1 bg-bg-elevated border border-bg-border rounded-lg px-4 py-2.5 text-sm text-text-primary focus:outline-none focus:border-accent transition-colors placeholder:text-text-muted disabled:opacity-50 resize-none min-h-[44px] max-h-[120px]"
           />
           <button
             onClick={send}

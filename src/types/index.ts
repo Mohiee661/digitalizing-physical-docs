@@ -7,7 +7,7 @@ export type Project = {
   type: string | null
 }
 
-export type Record = {
+export type DocRecord = {
   id: string
   project_id: string
   created_at: string
@@ -17,7 +17,7 @@ export type Record = {
   input_type: string
   record_type: string | null
   summary: string | null
-  metadata: Record<string, unknown> | null
+  metadata: { [key: string]: unknown } | null
   confidence: number | null
   status: string | null
   is_verified: boolean

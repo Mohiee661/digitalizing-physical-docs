@@ -37,7 +37,6 @@ export default function FilesTab({ projectId, initialRecords, searchQuery }: Fil
   }
 
   const handleUploadSuccess = useCallback(() => {
-    console.log("[FilesTab] upload success, refreshing…")
     router.refresh()
   }, [router])
 
@@ -67,10 +66,7 @@ export default function FilesTab({ projectId, initialRecords, searchQuery }: Fil
               Type
             </button>
             <button
-              onClick={() => {
-                console.log("[FilesTab] Upload button clicked")
-                setUploadOpen(true)
-              }}
+              onClick={() => setUploadOpen(true)}
               className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-accent hover:bg-accent-dim text-bg-base px-4 py-2.5 rounded-md text-sm font-bold transition-all active:scale-95"
             >
               <Plus className="w-4 h-4" />

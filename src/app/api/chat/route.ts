@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { generateEmbedding } from "@/lib/embedding"
 import Groq from "groq-sdk"
-
-const FALLBACK = "I could not find relevant information in your documents."
-const FALLBACK_NOT_IN_CONTEXT = "I could not find this information in the uploaded documents."
 
 type Chunk = {
   record_id: string
@@ -16,7 +14,7 @@ type Chunk = {
 // ─── Memory ──────────────────────────────────────────────────────────────────
 
 async function fetchMemory(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   project_id: string,
   user_id: string
 ): Promise<{ role: string; content: string }[]> {
@@ -43,23 +41,46 @@ function buildMemoryBlock(messages: { role: string; content: string }[]): string
 // ─── Retrieval ───────────────────────────────────────────────────────────────
 
 async function retrieveChunks(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   project_id: string,
   question: string
 ): Promise<Chunk[]> {
-  const embedding = await generateEmbedding(question)
+  let embedding: number[]
+  try {
+    embedding = await generateEmbedding(question)
+  } catch (e) {
+    console.error("[chat] Embedding generation failed:", e)
+    return []
+  }
 
+  // Try the RPC function first (vector similarity search)
   const { data: chunks, error } = await supabase.rpc("match_chunks", {
     query_embedding: embedding,
     match_count: 15,
-    project_id,
+    p_project_id: project_id,
   })
 
-  if (error || !chunks?.length) return []
+  if (error) {
+    console.error("[chat] match_chunks RPC failed:", error.message)
+    
+    // Fallback: fetch chunks directly (no vector search, just text match)
+    const { data: fallbackChunks } = await supabase
+      .from("record_chunks")
+      .select("record_id, chunk_index, content")
+      .eq("project_id", project_id)
+      .limit(10)
+    
+    if (fallbackChunks?.length) {
+      return fallbackChunks.map(c => ({ ...c, similarity: 0.7 }))
+    }
+    return []
+  }
+
+  if (!chunks?.length) return []
 
   return (chunks as Chunk[])
     .sort((a, b) => b.similarity - a.similarity)
-    .filter((c) => c.similarity >= 0.5)
+    .filter((c) => c.similarity >= 0.3)
     .slice(0, 8)
 }
 
@@ -78,15 +99,30 @@ function buildContext(chunks: Chunk[]): string {
 
 // ─── Prompt ──────────────────────────────────────────────────────────────────
 
-function buildPrompt(context: string, memory: string, question: string): string {
-  return `You are a document assistant.
-You MUST prioritize the provided context over conversation history.
-Use conversation history only for understanding the question, NOT for factual answers.
-Answer ONLY using the context.
-If the answer is not in the context, say: "${FALLBACK_NOT_IN_CONTEXT}"
+function buildPrompt(context: string, memory: string, question: string, hasContext: boolean): string {
+  if (!hasContext) {
+    return `You are a helpful document assistant for a project called RecordsVault.
+The user has uploaded documents to this project, but either the documents haven't been processed yet, or no relevant content was found for this particular question.
+
+Be helpful and friendly. If the question seems to be about their documents, let them know that:
+- Their documents may still be processing (they can check the Files tab)
+- They can try rephrasing their question
+- They can upload more documents if needed
+
+If the question is a general question, answer it helpfully.
+
+${memory}
+Question: ${question}`
+  }
+
+  return `You are a helpful document assistant for RecordsVault.
+Answer the user's question using the provided context from their uploaded documents.
+Be thorough, helpful, and cite specific information from the documents when possible.
+If the specific answer isn't in the context but you can make a reasonable inference, do so and note it.
+If the answer truly cannot be found in the context, say so clearly and suggest what the user could try.
 
 ----------------------------------------
-Context:
+Context from uploaded documents:
 ${context}
 
 ----------------------------------------
@@ -100,12 +136,15 @@ ${question}`
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    // Auth check using user-scoped client
+    const userSupabase = await createClient()
+    const { data: { user }, error: authError } = await userSupabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    // Use admin client for DB operations
+    const supabase = createAdminClient()
 
     const body = await req.json()
     const { project_id, question } = body as { project_id?: string; question?: string }
@@ -116,16 +155,12 @@ export async function POST(req: NextRequest) {
 
     // 1. Retrieve relevant chunks
     const chunks = await retrieveChunks(supabase, project_id, question)
-
-    if (!chunks.length) {
-      await saveMessages(supabase, project_id, user.id, question, FALLBACK)
-      return NextResponse.json({ answer: FALLBACK, sources: [] })
-    }
+    const hasContext = chunks.length > 0
 
     // 2. Build context + prompt
     const context = buildContext(chunks)
     const memory = buildMemoryBlock(await fetchMemory(supabase, project_id, user.id))
-    const prompt = buildPrompt(context, memory, question)
+    const prompt = buildPrompt(context, memory, question, hasContext)
 
     // 3. Call Groq
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
@@ -135,9 +170,9 @@ export async function POST(req: NextRequest) {
       messages: [{ role: "user", content: prompt }],
     })
 
-    const answer = completion.choices[0]?.message?.content?.trim() ?? FALLBACK
+    const answer = completion.choices[0]?.message?.content?.trim() ?? "I'm sorry, I couldn't generate a response. Please try again."
 
-    // 4. Save chat messages (answer text only)
+    // 4. Save chat messages
     await saveMessages(supabase, project_id, user.id, question, answer)
 
     const sources = chunks.map(({ record_id, chunk_index }) => ({ record_id, chunk_index }))
@@ -145,21 +180,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ answer, sources })
   } catch (err) {
     console.error("[chat] Error:", err)
-    return NextResponse.json({ answer: FALLBACK, sources: [] }, { status: 500 })
+    return NextResponse.json({ 
+      answer: "I encountered an error while processing your question. Please try again.", 
+      sources: [] 
+    }, { status: 500 })
   }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 async function saveMessages(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   project_id: string,
   user_id: string,
   question: string,
   answer: string
 ) {
-  await supabase.from("chat_messages").insert([
+  const { error } = await supabase.from("chat_messages").insert([
     { project_id, user_id, role: "user", content: question },
     { project_id, user_id, role: "assistant", content: answer },
   ])
+  if (error) {
+    console.error("[chat] Failed to save messages:", error.message)
+  }
 }

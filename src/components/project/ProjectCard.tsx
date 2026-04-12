@@ -1,7 +1,8 @@
 "use client"
 
-import { Project } from "@/../types"
+import { Project } from "@/types"
 import { Folder } from "lucide-react"
+import Link from "next/link"
 
 interface ProjectCardProps {
   project: Project
@@ -9,9 +10,9 @@ interface ProjectCardProps {
 
 export default function ProjectCard({ project }: ProjectCardProps) {
   return (
-    <div
-      className="group relative bg-bg-surface border border-bg-border rounded-xl p-6 hover:border-accent/20 hover:bg-bg-elevated/30 hover:shadow-lg hover:shadow-black/20 transition-all duration-200 cursor-pointer"
-      onClick={() => window.location.href = `/projects/${project.id}`}
+    <Link
+      href={`/projects/${project.id}`}
+      className="group relative bg-bg-surface border border-bg-border rounded-xl p-6 hover:border-accent/20 hover:bg-bg-elevated/30 hover:shadow-lg hover:shadow-black/20 transition-all duration-200 cursor-pointer block"
     >
       <div className="flex justify-between items-start mb-5">
         <div className="p-2.5 bg-bg-elevated rounded-lg border border-bg-border group-hover:border-accent/20 group-hover:bg-accent/5 transition-colors">
@@ -35,6 +36,6 @@ export default function ProjectCard({ project }: ProjectCardProps) {
           {project.type ?? "General"}
         </span>
       </div>
-    </div>
+    </Link>
   )
 }
