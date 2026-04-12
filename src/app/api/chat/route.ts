@@ -193,7 +193,11 @@ export async function POST(req: NextRequest) {
     // 4. Save chat messages
     await saveMessages(supabase, project_id, user.id, question, answer)
 
-    const sources = chunks.map(({ record_id, chunk_index }) => ({ record_id, chunk_index }))
+    const sources = chunks.map(({ record_id, chunk_index }) => ({ 
+      record_id, 
+      chunk_index, 
+      title: recordsMap.get(record_id) || "Unknown Document" 
+    }))
 
     return NextResponse.json({ answer, sources })
   } catch (err) {

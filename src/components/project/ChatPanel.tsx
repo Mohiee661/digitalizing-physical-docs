@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { Send, Loader2, MessageSquare } from "lucide-react"
 
-type Source = { record_id: string; chunk_index: number }
+type Source = { record_id: string; chunk_index: number; title?: string }
 
 type Message = {
   role: "user" | "assistant"
@@ -98,7 +98,7 @@ export default function ChatPanel({ projectId, projectName }: { projectId: strin
                       rel="noopener noreferrer"
                       className="block text-[11px] text-text-muted font-mono hover:text-accent transition-colors"
                     >
-                      — Doc {s.record_id.slice(0, 8)}… (Chunk {s.chunk_index})
+                      — {s.title || `Doc ${s.record_id.slice(0, 8)}…`}
                     </a>
                   ))}
                 </div>
