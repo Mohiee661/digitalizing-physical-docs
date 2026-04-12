@@ -133,101 +133,104 @@ export default function FilesTab({ projectId, initialRecords, searchQuery }: Fil
                 </tr>
               </thead>
               <tbody className="divide-y divide-bg-border">
-                {filteredRecords.length > 0 ? filteredRecords.map((record) => (
-                  <tr key={record.id} className="hover:bg-bg-elevated/40 transition-colors cursor-pointer group">
-                    <td className="px-6 py-4">
-                      <Link href={`/projects/${projectId}/records/${record.id}`} className="flex items-center gap-3">
-                        <div className="p-2 bg-bg-elevated rounded-lg border border-bg-border group-hover:border-accent/20 transition-colors">
-                          {record.input_type === "pdf" && <FileText className="w-4 h-4 text-blue" />}
-                          {record.input_type === "image" && <ImageIcon className="w-4 h-4 text-green" />}
-                          {(record.input_type === "text" || record.input_type === "csv") && <FileCode className="w-4 h-4 text-orange" />}
+                {filteredRecords.length > 0 ? filteredRecords.map((record, index) => {
+                  const isNearBottom = index >= filteredRecords.length - 2 && filteredRecords.length > 3
+                  return (
+                    <tr key={record.id} className="hover:bg-bg-elevated/40 transition-colors cursor-pointer group">
+                      <td className="px-6 py-4">
+                        <Link href={`/projects/${projectId}/records/${record.id}`} className="flex items-center gap-3">
+                          <div className="p-2 bg-bg-elevated rounded-lg border border-bg-border group-hover:border-accent/20 transition-colors">
+                            {record.input_type === "pdf" && <FileText className="w-4 h-4 text-blue" />}
+                            {record.input_type === "image" && <ImageIcon className="w-4 h-4 text-green" />}
+                            {(record.input_type === "text" || record.input_type === "csv") && <FileCode className="w-4 h-4 text-orange" />}
+                          </div>
+                          <div className="max-w-[200px]">
+                            <p className="font-medium text-text-primary truncate group-hover:text-accent transition-colors">
+                              {record.title || "Untitled Record"}
+                            </p>
+                            <p className="text-xs text-text-muted uppercase tracking-tighter">{record.input_type}</p>
+                          </div>
+                        </Link>
+                      </td>
+                      <td className="px-6 py-4">
+                        <Badge variant={(record.record_type as any) || "unclassified"}>{record.record_type || "unclassified"}</Badge>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="w-24">
+                          <span className="text-[10px] font-mono text-text-secondary block mb-1">
+                            {((record.confidence || 0) * 100).toFixed(0)}%
+                          </span>
+                          <div className="h-1 w-full bg-bg-elevated rounded-full overflow-hidden">
+                            <div
+                              className={`h-full ${getConfidenceColor(record.confidence || 0)} transition-all duration-500`}
+                              style={{ width: `${(record.confidence || 0) * 100}%` }}
+                            />
+                          </div>
                         </div>
-                        <div className="max-w-[200px]">
-                          <p className="font-medium text-text-primary truncate group-hover:text-accent transition-colors">
-                            {record.title || "Untitled Record"}
-                          </p>
-                          <p className="text-xs text-text-muted uppercase tracking-tighter">{record.input_type}</p>
-                        </div>
-                      </Link>
-                    </td>
-                    <td className="px-6 py-4">
-                      <Badge variant={(record.record_type as any) || "unclassified"}>{record.record_type || "unclassified"}</Badge>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="w-24">
-                        <span className="text-[10px] font-mono text-text-secondary block mb-1">
-                          {((record.confidence || 0) * 100).toFixed(0)}%
-                        </span>
-                        <div className="h-1 w-full bg-bg-elevated rounded-full overflow-hidden">
-                          <div
-                            className={`h-full ${getConfidenceColor(record.confidence || 0)} transition-all duration-500`}
-                            style={{ width: `${(record.confidence || 0) * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-text-secondary font-mono text-xs">
-                      {new Date(record.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            window.open(`/api/download/${record.id}`, '_blank')
-                          }}
-                          className="p-2 hover:bg-bg-elevated rounded transition-colors text-text-secondary"
-                          title="Download"
-                        >
-                          <Download className="w-4 h-4" />
-                        </button>
-                        
-                        <div className="relative">
+                      </td>
+                      <td className="px-6 py-4 text-text-secondary font-mono text-xs">
+                        {new Date(record.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button 
                             onClick={(e) => {
                               e.preventDefault()
                               e.stopPropagation()
-                              setMenuRecordId(menuRecordId === record.id ? null : record.id)
+                              window.open(`/api/download/${record.id}`, '_blank')
                             }}
-                            className={`p-2 rounded transition-colors ${menuRecordId === record.id ? 'bg-bg-elevated text-accent' : 'hover:bg-bg-elevated text-text-secondary'}`}
+                            className="p-2 hover:bg-bg-elevated rounded transition-colors text-text-secondary"
+                            title="Download"
                           >
-                            <MoreVertical className="w-4 h-4" />
+                            <Download className="w-4 h-4" />
                           </button>
-
-                          {menuRecordId === record.id && (
-                            <>
-                              <div 
-                                className="fixed inset-0 z-10" 
-                                onClick={(e) => { e.stopPropagation(); setMenuRecordId(null) }} 
-                              />
-                              <div className="absolute right-0 mt-2 w-36 bg-bg-surface border border-bg-border rounded-lg shadow-xl z-20 py-1 overflow-hidden animate-in fade-in zoom-in duration-100">
-                                <Link 
-                                  href={`/projects/${projectId}/records/${record.id}`}
-                                  className="flex items-center gap-2 px-4 py-2 text-xs text-text-secondary hover:bg-bg-elevated hover:text-text-primary transition-colors"
-                                >
-                                  <Eye className="w-3.5 h-3.5" />
-                                  View Details
-                                </Link>
-                                <button 
-                                  onClick={(e) => {
-                                    e.preventDefault()
-                                    e.stopPropagation()
-                                    handleDelete(record.id)
-                                  }}
-                                  className="w-full flex items-center gap-2 px-4 py-2 text-xs text-red hover:bg-red/5 transition-colors"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                  Delete Record
-                                </button>
-                              </div>
-                            </>
-                          )}
+                          
+                          <div className="relative">
+                            <button 
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                setMenuRecordId(menuRecordId === record.id ? null : record.id)
+                              }}
+                              className={`p-2 rounded transition-colors ${menuRecordId === record.id ? 'bg-bg-elevated text-accent' : 'hover:bg-bg-elevated text-text-secondary'}`}
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+  
+                            {menuRecordId === record.id && (
+                              <>
+                                <div 
+                                  className="fixed inset-0 z-10" 
+                                  onClick={(e) => { e.stopPropagation(); setMenuRecordId(null) }} 
+                                />
+                                <div className={`absolute right-0 ${isNearBottom ? 'bottom-full mb-2' : 'top-full mt-2'} w-36 bg-bg-surface border border-bg-border rounded-lg shadow-xl z-20 py-1 overflow-hidden animate-in fade-in zoom-in duration-100`}>
+                                  <Link 
+                                    href={`/projects/${projectId}/records/${record.id}`}
+                                    className="flex items-center gap-2 px-4 py-2 text-xs text-text-secondary hover:bg-bg-elevated hover:text-text-primary transition-colors"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    View Details
+                                  </Link>
+                                  <button 
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      handleDelete(record.id)
+                                    }}
+                                    className="w-full flex items-center gap-2 px-4 py-2 text-xs text-red hover:bg-red/5 transition-colors"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    Delete Record
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                  </tr>
-                )) : (
+                      </td>
+                    </tr>
+                  )
+                }) : (
                   <tr>
                     <td colSpan={5}>
                       <div className="flex flex-col items-center justify-center py-16 gap-3">
