@@ -12,14 +12,25 @@ export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
   
   const supabase = createClient()
   const router = useRouter()
+
+  const toggleMode = () => {
+    setIsSignup(!isSignup)
+    setEmail("")
+    setPassword("")
+    setError(null)
+    setSuccess(null)
+    setShowPassword(false)
+  }
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
+    setSuccess(null)
 
     if (isSignup) {
       const { error } = await supabase.auth.signUp({
@@ -30,7 +41,11 @@ export default function LoginPage() {
         },
       })
       if (error) setError(error.message)
-      else alert("Check your email for the confirmation link!")
+      else {
+        setSuccess("Check your email for the confirmation link!")
+        setEmail("")
+        setPassword("")
+      }
     } else {
       const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -65,6 +80,11 @@ export default function LoginPage() {
                 {error}
               </div>
             )}
+            {success && (
+              <div className="p-3 bg-green/10 border border-green/20 rounded text-green text-xs">
+                {success}
+              </div>
+            )}
             <div>
               <label className="block mb-2 font-display">Email Address</label>
               <div className="relative">
@@ -87,6 +107,7 @@ export default function LoginPage() {
                 <input
                   type={showPassword ? "text" : "password"}
                   required
+                  minLength={6}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
@@ -114,23 +135,16 @@ export default function LoginPage() {
 
           <div className="mt-8 pt-6 border-t border-bg-border text-center">
             <button
-              onClick={() => setIsSignup(!isSignup)}
+              onClick={toggleMode}
               className="text-text-secondary text-sm hover:text-accent transition-colors"
             >
               {isSignup ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
             </button>
           </div>
-          
-          {/* SUPABASE Auth Placeholder */}
-          {/* 
-            const { data, error } = await supabase.auth.signInWithPassword({
-              email, password
-            })
-          */}
         </div>
         
         <p className="mt-10 text-center text-text-muted text-xs">
-          Built with precision. 2024 RecordsVault.
+          Built with precision. © 2025 RecordsVault.
         </p>
       </div>
     </main>

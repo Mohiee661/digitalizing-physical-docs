@@ -13,6 +13,7 @@ import DocumentPreview from "@/components/ui/DocumentPreview"
 import ChunkedContent from "@/components/ui/ChunkedContent"
 import ReprocessButton from "@/components/ui/ReprocessButton"
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { redirect } from "next/navigation"
 
 export default async function RecordDetailPage({ params, searchParams }: { 
@@ -35,8 +36,9 @@ export default async function RecordDetailPage({ params, searchParams }: {
 
   if (!record) redirect(`/projects/${id}`)
 
-  // Fetch chunks for this record
-  const { data: chunks } = await supabase
+  const adminSupabase = createAdminClient()
+  // Fetch chunks for this record (bypassing RLS since user auth is already strictly verified above via records ownership)
+  const { data: chunks } = await adminSupabase
     .from("record_chunks")
     .select("chunk_index, content")
     .eq("record_id", recordId)

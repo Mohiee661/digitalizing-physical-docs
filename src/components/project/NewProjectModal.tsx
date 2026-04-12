@@ -16,6 +16,11 @@ export default function NewProjectModal({ isOpen, onClose }: NewProjectModalProp
   const supabase = createClient()
   const router = useRouter()
 
+  const handleClose = () => {
+    setName("")
+    onClose()
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -34,18 +39,18 @@ export default function NewProjectModal({ isOpen, onClose }: NewProjectModalProp
       if (error) throw error
       
       setName("")
-      onClose()
+      handleClose()
       router.refresh()
     } catch (error) {
       console.error("Error creating project:", JSON.stringify(error, null, 2))
-      alert("Failed to create project")
+      alert(error instanceof Error ? error.message : "Failed to create project")
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Create New Project">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Create New Project">
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label className="block mb-2 font-display">Project Name</label>
@@ -63,7 +68,7 @@ export default function NewProjectModal({ isOpen, onClose }: NewProjectModalProp
         <div className="flex gap-3 justify-end">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors font-medium"
           >
             Cancel

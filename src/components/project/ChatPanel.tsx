@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Send, Loader2, MessageSquare } from "lucide-react"
+import { Send, Loader2, MessageSquare, Trash } from "lucide-react"
 
-type Source = { record_id: string; chunk_index: number }
+type Source = { record_id: string; chunk_index: number; title?: string }
 
 type Message = {
   role: "user" | "assistant"
@@ -15,11 +15,42 @@ export default function ChatPanel({ projectId, projectName }: { projectId: strin
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+
+  // Fetch old messages on mount
+  useEffect(() => {
+    fetch(`/api/chat?project_id=${projectId}`)
+      .then(res => res.json())
+      .then(data => setMessages(data.messages || []))
+      .catch(console.error)
+  }, [projectId])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
+
+  const clearChat = async () => {
+    setShowConfirm(false)
+    setMessages([])
+    await fetch(`/api/chat?project_id=${projectId}`, { method: "DELETE" })
+  }
+
+  // Parses basic [Text](url) markdown to actual clickable links
+  const renderMessageContent = (text: string) => {
+    const parts = text.split(/(\[.*?\]\(.*?\))/g);
+    return parts.map((part, i) => {
+      const match = part.match(/\[(.*?)\]\((.*?)\)/);
+      if (match) {
+        return (
+          <a key={i} href={match[2]} target="_blank" rel="noopener noreferrer" className="text-blue hover:text-accent underline font-medium">
+            {match[1]}
+          </a>
+        );
+      }
+      return <span key={i}>{part}</span>;
+    });
+  }
 
   const send = async () => {
     const question = input.trim()
@@ -78,31 +109,13 @@ export default function ChatPanel({ projectId, projectName }: { projectId: strin
               </div>
             )}
             <div className={`max-w-[85%] md:max-w-[75%] flex flex-col gap-1.5 ${msg.role === "user" ? "items-end" : "items-start"}`}>
-              <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+              <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap break-words ${
                 msg.role === "user"
                   ? "bg-accent text-bg-base rounded-br-none"
                   : "bg-bg-base border border-bg-border text-text-primary rounded-tl-none"
               }`}>
-                {msg.content}
+                {renderMessageContent(msg.content)}
               </div>
-
-              {/* Citations */}
-              {msg.sources && msg.sources.length > 0 && (
-                <div className="px-1 space-y-0.5">
-                  <p className="text-[10px] uppercase tracking-widest text-text-muted">Sources</p>
-                  {msg.sources.map((s, si) => (
-                    <a
-                      key={si}
-                      href={`/projects/${projectId}/records/${s.record_id}?chunk=${s.chunk_index}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block text-[11px] text-text-muted font-mono hover:text-accent transition-colors"
-                    >
-                      — Doc {s.record_id.slice(0, 8)}… (Chunk {s.chunk_index})
-                    </a>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         ))}
@@ -123,15 +136,45 @@ export default function ChatPanel({ projectId, projectName }: { projectId: strin
 
       {/* Input */}
       <div className="p-4 md:p-5 border-t border-bg-border bg-bg-surface">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={input}
+          <div className="flex gap-2">
+            {!showConfirm ? (
+              <button
+                onClick={() => setShowConfirm(true)}
+                disabled={loading || messages.length === 0}
+                className="p-2.5 bg-bg-elevated border border-bg-border text-text-muted rounded-lg hover:text-red hover:border-red/30 transition-colors shrink-0 disabled:opacity-40"
+                title="Clear chat"
+              >
+                <Trash className="w-4 h-4" />
+              </button>
+            ) : (
+              <div className="flex gap-1 animate-in fade-in slide-in-from-left-2 duration-200">
+                <button
+                  onClick={() => setShowConfirm(false)}
+                  className="px-3 py-2 bg-bg-elevated border border-bg-border text-text-muted rounded-lg hover:bg-bg-base text-xs font-bold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={clearChat}
+                  className="px-3 py-2 bg-red/10 border border-red/20 text-red rounded-lg hover:bg-red hover:text-bg-base text-xs font-bold transition-colors"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+            <textarea
+              value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && send()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault()
+                send()
+              }
+            }}
             placeholder="Ask about your project..."
             disabled={loading}
-            className="flex-1 bg-bg-elevated border border-bg-border rounded-lg px-4 py-2.5 text-sm text-text-primary focus:outline-none focus:border-accent transition-colors placeholder:text-text-muted disabled:opacity-50"
+            rows={1}
+            className="flex-1 bg-bg-elevated border border-bg-border rounded-lg px-4 py-2.5 text-sm text-text-primary focus:outline-none focus:border-accent transition-colors placeholder:text-text-muted disabled:opacity-50 resize-none min-h-[44px] max-h-[120px]"
           />
           <button
             onClick={send}

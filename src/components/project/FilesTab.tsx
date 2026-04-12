@@ -5,7 +5,7 @@ import Link from "next/link"
 import {
   Search, Plus, Filter, Type, Download,
   MoreVertical, FileText, Image as ImageIcon,
-  FileCode, FolderOpen
+  FileCode, FolderOpen, Trash2, Eye
 } from "lucide-react"
 import Badge from "@/components/ui/Badge"
 import UploadModal from "@/components/project/UploadModal"
@@ -28,6 +28,9 @@ interface FilesTabProps {
 
 export default function FilesTab({ projectId, initialRecords, searchQuery }: FilesTabProps) {
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [filterType, setFilterType] = useState<string>("all")
+  const [minConfidence, setMinConfidence] = useState<number>(0)
+  const [menuRecordId, setMenuRecordId] = useState<string | null>(null)
   const router = useRouter()
 
   const getConfidenceColor = (score: number) => {
@@ -37,9 +40,31 @@ export default function FilesTab({ projectId, initialRecords, searchQuery }: Fil
   }
 
   const handleUploadSuccess = useCallback(() => {
-    console.log("[FilesTab] upload success, refreshing…")
     router.refresh()
   }, [router])
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this record? This cannot be undone.")) return
+    try {
+      const res = await fetch(`/api/records/${id}`, { method: "DELETE" })
+      if (res.ok) router.refresh()
+      else alert("Failed to delete record.")
+    } catch (err) {
+      alert("Error deleting record.")
+    } finally {
+      setMenuRecordId(null)
+    }
+  }
+
+
+  const filteredRecords = initialRecords.filter((rec) => {
+    const typeMatch = filterType === "all" || rec.record_type === filterType
+    const confMatch = (rec.confidence || 0) >= minConfidence
+    
+    // Search is handled by server via defaultValue/query params, 
+    // but just for client-side sorting we pass both
+    return typeMatch && confMatch
+  })
 
   return (
     <>
@@ -58,19 +83,34 @@ export default function FilesTab({ projectId, initialRecords, searchQuery }: Fil
           </form>
 
           <div className="flex gap-2 w-full md:w-auto">
-            <button className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-bg-surface border border-bg-border px-4 py-2.5 rounded-md text-sm font-medium hover:bg-bg-elevated transition-colors">
-              <Filter className="w-4 h-4" />
-              Filter
-            </button>
-            <button className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-bg-surface border border-bg-border px-4 py-2.5 rounded-md text-sm font-medium hover:bg-bg-elevated transition-colors">
-              <Type className="w-4 h-4" />
-              Type
-            </button>
+            <select
+              title="Filter by Confidence"
+              value={minConfidence.toString()}
+              onChange={(e) => setMinConfidence(Number(e.target.value))}
+              className="flex-1 md:flex-none flex items-center justify-center bg-bg-surface border border-bg-border px-4 py-2.5 rounded-md text-sm font-medium hover:bg-bg-elevated focus:outline-none transition-colors"
+            >
+              <option value="0">All Confidences</option>
+              <option value="0.5">Medium+ (&ge;50%)</option>
+              <option value="0.8">High+ (&ge;80%)</option>
+            </select>
+            <select
+              title="Filter by Type"
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value)}
+              className="flex-1 md:flex-none flex items-center justify-center bg-bg-surface border border-bg-border px-4 py-2.5 rounded-md text-sm font-medium hover:bg-bg-elevated focus:outline-none transition-colors"
+            >
+              <option value="all">All Types</option>
+              <option value="identity">Identity</option>
+              <option value="legal">Legal</option>
+              <option value="medical">Medical</option>
+              <option value="financial">Financial</option>
+              <option value="personal">Personal</option>
+              <option value="public">Public</option>
+              <option value="education">Education</option>
+              <option value="unclassified">Unclassified</option>
+            </select>
             <button
-              onClick={() => {
-                console.log("[FilesTab] Upload button clicked")
-                setUploadOpen(true)
-              }}
+              onClick={() => setUploadOpen(true)}
               className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-accent hover:bg-accent-dim text-bg-base px-4 py-2.5 rounded-md text-sm font-bold transition-all active:scale-95"
             >
               <Plus className="w-4 h-4" />
@@ -93,7 +133,7 @@ export default function FilesTab({ projectId, initialRecords, searchQuery }: Fil
                 </tr>
               </thead>
               <tbody className="divide-y divide-bg-border">
-                {initialRecords.length > 0 ? initialRecords.map((record) => (
+                {filteredRecords.length > 0 ? filteredRecords.map((record) => (
                   <tr key={record.id} className="hover:bg-bg-elevated/40 transition-colors cursor-pointer group">
                     <td className="px-6 py-4">
                       <Link href={`/projects/${projectId}/records/${record.id}`} className="flex items-center gap-3">
@@ -111,7 +151,7 @@ export default function FilesTab({ projectId, initialRecords, searchQuery }: Fil
                       </Link>
                     </td>
                     <td className="px-6 py-4">
-                      <Badge variant={record.record_type as any}>{record.record_type || "unclassified"}</Badge>
+                      <Badge variant={(record.record_type as any) || "unclassified"}>{record.record_type || "unclassified"}</Badge>
                     </td>
                     <td className="px-6 py-4">
                       <div className="w-24">
@@ -131,12 +171,59 @@ export default function FilesTab({ projectId, initialRecords, searchQuery }: Fil
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button className="p-2 hover:bg-bg-elevated rounded transition-colors text-text-secondary">
+                        <button 
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            window.open(`/api/download/${record.id}`, '_blank')
+                          }}
+                          className="p-2 hover:bg-bg-elevated rounded transition-colors text-text-secondary"
+                          title="Download"
+                        >
                           <Download className="w-4 h-4" />
                         </button>
-                        <button className="p-2 hover:bg-bg-elevated rounded transition-colors text-text-secondary">
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
+                        
+                        <div className="relative">
+                          <button 
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setMenuRecordId(menuRecordId === record.id ? null : record.id)
+                            }}
+                            className={`p-2 rounded transition-colors ${menuRecordId === record.id ? 'bg-bg-elevated text-accent' : 'hover:bg-bg-elevated text-text-secondary'}`}
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+
+                          {menuRecordId === record.id && (
+                            <>
+                              <div 
+                                className="fixed inset-0 z-10" 
+                                onClick={(e) => { e.stopPropagation(); setMenuRecordId(null) }} 
+                              />
+                              <div className="absolute right-0 mt-2 w-36 bg-bg-surface border border-bg-border rounded-lg shadow-xl z-20 py-1 overflow-hidden animate-in fade-in zoom-in duration-100">
+                                <Link 
+                                  href={`/projects/${projectId}/records/${record.id}`}
+                                  className="flex items-center gap-2 px-4 py-2 text-xs text-text-secondary hover:bg-bg-elevated hover:text-text-primary transition-colors"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  View Details
+                                </Link>
+                                <button 
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    handleDelete(record.id)
+                                  }}
+                                  className="w-full flex items-center gap-2 px-4 py-2 text-xs text-red hover:bg-red/5 transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  Delete Record
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>
