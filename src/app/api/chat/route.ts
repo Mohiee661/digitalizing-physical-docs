@@ -101,7 +101,8 @@ async function buildPrompt(project_id: string, chunks: Chunk[], memory: string, 
       const { record_id, chunk_index, content } = chunks[i]
       const title = recordsMap.get(record_id) || "Unknown Document"
       const docLink = `/projects/${project_id}/records/${record_id}?chunk=${chunk_index}`
-      const entry = `Document Title: ${title}\nDirect Link: ${docLink}\nText Passage:\n${content}\n\n`
+      const downloadLink = `/api/download/${record_id}`
+      const entry = `Document Title: ${title}\nView Link: ${docLink}\nDownload Link: ${downloadLink}\nText Passage:\n${content}\n\n`
       if ((context + entry).length > 12000) break
       context += entry
     }
@@ -126,10 +127,11 @@ Your goal is to answer the user's question naturally and clearly, using the cont
 
 CRITICAL RULES:
 1. NEVER mention technical database details (like "Document ID", "Chunk ID", "Status", or system variables).
-2. DO NOT quote raw, unformatted, or badly OCR'd text (with lots of spaces/symbols). Instead, read the raw text and seamlessly paraphrase or reformat it into clean, readable sentences.
-3. Keep your answers concise, human-friendly, and professional. Synthesize the info—don't just spit out a bulleted list of raw data.
-4. Don't say "I extracted the following content". Just provide the answer.
-5. You MUST actively cite the documents inline using markdown links mapped to the exact Direct Link provided. E.g. "According to your [Ml Certificate 2](/projects/...)" -> Do NOT put links at the bottom, securely embed them inside your conversational sentences.
+2. DO NOT quote raw, unformatted, or badly OCR'd text. Clean it up into natural sentences.
+3. Keep your answers concise, human-friendly, and professional. 
+4. DO NOT say "I cannot provide the document" or "I am unable to provide it". You DO have the files!
+5. When a user asks to see, get, view, or download the document, you MUST reply with the markdown link using the Download Link provided in the text extracts. Example: "Here is your document: [Download ML Certificate 2](/api/download/...)"
+6. Always embed these links inline naturally within your response. DO NOT create "Sources" or "[1]" footnotes at the bottom.
 
 ----------------------------------------
 Project Overview:
