@@ -15,6 +15,7 @@ export default function ChatPanel({ projectId, projectName }: { projectId: strin
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   // Fetch old messages on mount
@@ -30,7 +31,7 @@ export default function ChatPanel({ projectId, projectName }: { projectId: strin
   }, [messages])
 
   const clearChat = async () => {
-    if (!confirm("Are you sure you want to clear the chat history?")) return
+    setShowConfirm(false)
     setMessages([])
     await fetch(`/api/chat?project_id=${projectId}`, { method: "DELETE" })
   }
@@ -136,14 +137,31 @@ export default function ChatPanel({ projectId, projectName }: { projectId: strin
       {/* Input */}
       <div className="p-4 md:p-5 border-t border-bg-border bg-bg-surface">
           <div className="flex gap-2">
-            <button
-              onClick={clearChat}
-              disabled={loading || messages.length === 0}
-              className="p-2.5 bg-bg-elevated border border-bg-border text-text-muted rounded-lg hover:text-red hover:border-red/30 transition-colors shrink-0 disabled:opacity-40"
-              title="Clear chat"
-            >
-              <Trash className="w-4 h-4" />
-            </button>
+            {!showConfirm ? (
+              <button
+                onClick={() => setShowConfirm(true)}
+                disabled={loading || messages.length === 0}
+                className="p-2.5 bg-bg-elevated border border-bg-border text-text-muted rounded-lg hover:text-red hover:border-red/30 transition-colors shrink-0 disabled:opacity-40"
+                title="Clear chat"
+              >
+                <Trash className="w-4 h-4" />
+              </button>
+            ) : (
+              <div className="flex gap-1 animate-in fade-in slide-in-from-left-2 duration-200">
+                <button
+                  onClick={() => setShowConfirm(false)}
+                  className="px-3 py-2 bg-bg-elevated border border-bg-border text-text-muted rounded-lg hover:bg-bg-base text-xs font-bold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={clearChat}
+                  className="px-3 py-2 bg-red/10 border border-red/20 text-red rounded-lg hover:bg-red hover:text-bg-base text-xs font-bold transition-colors"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
             <textarea
               value={input}
             onChange={(e) => setInput(e.target.value)}
