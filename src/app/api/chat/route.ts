@@ -89,7 +89,7 @@ async function retrieveChunks(
 
 // ─── Prompt ──────────────────────────────────────────────────────────────────
 
-async function buildPrompt(chunks: Chunk[], memory: string, question: string, hasContext: boolean, recordsData: any[], recordsMap: Map<string, string>): Promise<string> {
+async function buildPrompt(project_id: string, chunks: Chunk[], memory: string, question: string, hasContext: boolean, recordsData: any[], recordsMap: Map<string, string>): Promise<string> {
   const projectDocsContext = recordsData?.length
     ? `\nOverview of uploaded documents in this project:\n` + recordsData.map(r => `- ${r.title} (${r.record_type}, Status: ${r.status})`).join("\n")
     : "\nNo documents are currently uploaded to this project.";
@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
 
     // 3. Build context + prompt
     const memory = buildMemoryBlock(await fetchMemory(supabase, project_id, user.id))
-    const prompt = await buildPrompt(chunks, memory, question, hasContext, recordsData || [], recordsMap)
+    const prompt = await buildPrompt(project_id, chunks, memory, question, hasContext, recordsData || [], recordsMap)
 
     // 3. Call Groq
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })

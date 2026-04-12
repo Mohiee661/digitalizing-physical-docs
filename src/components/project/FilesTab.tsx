@@ -127,12 +127,22 @@ export default function FilesTab({ projectId, initialRecords, searchQuery }: Fil
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button className="p-2 hover:bg-bg-elevated rounded transition-colors text-text-secondary">
+                        <button 
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            window.open(`/api/download/${record.id}`, '_blank')
+                          }}
+                          className="p-2 hover:bg-bg-elevated rounded transition-colors text-text-secondary"
+                        >
                           <Download className="w-4 h-4" />
                         </button>
-                        <button className="p-2 hover:bg-bg-elevated rounded transition-colors text-text-secondary">
+                        <Link 
+                          href={`/projects/${projectId}/records/${record.id}`}
+                          className="p-2 hover:bg-bg-elevated rounded transition-colors text-text-secondary"
+                        >
                           <MoreVertical className="w-4 h-4" />
-                        </button>
+                        </Link>
                       </div>
                     </td>
                   </tr>
