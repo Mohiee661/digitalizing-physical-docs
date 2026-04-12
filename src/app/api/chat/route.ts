@@ -80,55 +80,74 @@ async function retrieveChunks(
 
   return (chunks as Chunk[])
     .sort((a, b) => b.similarity - a.similarity)
-    .filter((c) => c.similarity >= 0.3)
-    .slice(0, 8)
+    .filter((c) => c.similarity >= 0.1)
+    .slice(0, 5)
 }
 
 // ─── Context ─────────────────────────────────────────────────────────────────
-
-function buildContext(chunks: Chunk[]): string {
-  let context = ""
-  for (let i = 0; i < chunks.length; i++) {
-    const { record_id, chunk_index, content } = chunks[i]
-    const entry = `[Source ${i + 1}]\nDocument ID: ${record_id}\nChunk: ${chunk_index}\nContent:\n${content}\n\n`
-    if ((context + entry).length > 12000) break
-    context += entry
-  }
-  return context.trim()
-}
+// Context building is now integrated into buildPrompt so it can access document titles.
 
 // ─── Prompt ──────────────────────────────────────────────────────────────────
 
-function buildPrompt(context: string, memory: string, question: string, hasContext: boolean): string {
+async function buildPrompt(supabase: ReturnType<typeof createAdminClient>, project_id: string, chunks: Chunk[], memory: string, question: string, hasContext: boolean): Promise<string> {
+  // Fetch basic metadata about what files are in this project
+  const { data: recordsData } = await supabase
+    .from("records")
+    .select("id, title, record_type, status")
+    .eq("project_id", project_id);
+    
+  const recordsMap = new Map(recordsData?.map(r => [r.id, r.title]) || []);
+  const projectDocsContext = recordsData?.length
+    ? `\nOverview of uploaded documents in this project:\n` + recordsData.map(r => `- ${r.title} (${r.record_type}, Status: ${r.status})`).join("\n")
+    : "\nNo documents are currently uploaded to this project.";
+
+  // Generate context string with titles
+  let context = ""
+  if (hasContext) {
+    for (let i = 0; i < chunks.length; i++) {
+      const { record_id, chunk_index, content } = chunks[i]
+      const title = recordsMap.get(record_id) || "Unknown Document"
+      const entry = `Document Title: ${title}\nText Passage:\n${content}\n\n`
+      if ((context + entry).length > 12000) break
+      context += entry
+    }
+    context = context.trim()
+  }
+
   if (!hasContext) {
-    return `You are a helpful document assistant for a project called RecordsVault.
-The user has uploaded documents to this project, but either the documents haven't been processed yet, or no relevant content was found for this particular question.
+    return `You are a helpful user-facing document assistant for a project called RecordsVault.
 
-Be helpful and friendly. If the question seems to be about their documents, let them know that:
-- Their documents may still be processing (they can check the Files tab)
-- They can try rephrasing their question
-- They can upload more documents if needed
+Background context to inform you:
+${projectDocsContext}
 
-If the question is a general question, answer it helpfully.
+Be helpful, friendly, and natural. Do NOT use technical jargon (like "document ID", "chunks", or database statuses like "error/ready").
+If the user asks what is uploaded, naturally list the titles. If they ask about something not in their documents, politely let them know based on their project overview.
 
 ${memory}
 Question: ${question}`
   }
 
-  return `You are a helpful document assistant for RecordsVault.
-Answer the user's question using the provided context from their uploaded documents.
-Be thorough, helpful, and cite specific information from the documents when possible.
-If the specific answer isn't in the context but you can make a reasonable inference, do so and note it.
-If the answer truly cannot be found in the context, say so clearly and suggest what the user could try.
+  return `You are an intelligent, conversational document assistant for RecordsVault.
+Your goal is to answer the user's question naturally and clearly, using the context from their uploaded documents.
+
+CRITICAL RULES:
+1. NEVER mention technical database details (like "Document ID", "Chunk ID", "Status", or system variables).
+2. DO NOT quote raw, unformatted, or badly OCR'd text (with lots of spaces/symbols). Instead, read the raw text and seamlessly paraphrase or reformat it into clean, readable sentences.
+3. Keep your answers concise, human-friendly, and professional. Synthesize the info—don't just spit out a bulleted list of raw data.
+4. Don't say "I extracted the following content". Just provide the answer.
 
 ----------------------------------------
-Context from uploaded documents:
+Project Overview:
+${projectDocsContext}
+
+----------------------------------------
+Document Extracts:
 ${context}
 
 ----------------------------------------
 ${memory}
 ----------------------------------------
-Question:
+User Question:
 ${question}`
 }
 
@@ -158,9 +177,8 @@ export async function POST(req: NextRequest) {
     const hasContext = chunks.length > 0
 
     // 2. Build context + prompt
-    const context = buildContext(chunks)
     const memory = buildMemoryBlock(await fetchMemory(supabase, project_id, user.id))
-    const prompt = buildPrompt(context, memory, question, hasContext)
+    const prompt = await buildPrompt(supabase, project_id, chunks, memory, question, hasContext)
 
     // 3. Call Groq
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
