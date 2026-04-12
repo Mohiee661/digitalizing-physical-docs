@@ -120,8 +120,8 @@ export default function FilesTab({ projectId, initialRecords, searchQuery }: Fil
         </div>
 
         {/* Table */}
-        <div className="bg-bg-surface border border-bg-border rounded-xl overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
+        <div className="bg-bg-surface border border-bg-border rounded-xl shadow-sm">
+          <div>
             <table className="w-full text-left text-sm">
               <thead className="bg-bg-elevated/50 border-b border-bg-border">
                 <tr>
