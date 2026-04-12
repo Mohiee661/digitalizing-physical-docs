@@ -5,7 +5,7 @@ import Link from "next/link"
 import {
   Search, Plus, Filter, Type, Download,
   MoreVertical, FileText, Image as ImageIcon,
-  FileCode, FolderOpen
+  FileCode, FolderOpen, Trash2, Eye
 } from "lucide-react"
 import Badge from "@/components/ui/Badge"
 import UploadModal from "@/components/project/UploadModal"
@@ -30,6 +30,7 @@ export default function FilesTab({ projectId, initialRecords, searchQuery }: Fil
   const [uploadOpen, setUploadOpen] = useState(false)
   const [filterType, setFilterType] = useState<string>("all")
   const [minConfidence, setMinConfidence] = useState<number>(0)
+  const [menuRecordId, setMenuRecordId] = useState<string | null>(null)
   const router = useRouter()
 
   const getConfidenceColor = (score: number) => {
@@ -41,6 +42,19 @@ export default function FilesTab({ projectId, initialRecords, searchQuery }: Fil
   const handleUploadSuccess = useCallback(() => {
     router.refresh()
   }, [router])
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this record? This cannot be undone.")) return
+    try {
+      const res = await fetch(`/api/records/${id}`, { method: "DELETE" })
+      if (res.ok) router.refresh()
+      else alert("Failed to delete record.")
+    } catch (err) {
+      alert("Error deleting record.")
+    } finally {
+      setMenuRecordId(null)
+    }
+  }
 
 
   const filteredRecords = initialRecords.filter((rec) => {
@@ -92,6 +106,7 @@ export default function FilesTab({ projectId, initialRecords, searchQuery }: Fil
               <option value="financial">Financial</option>
               <option value="personal">Personal</option>
               <option value="public">Public</option>
+              <option value="education">Education</option>
               <option value="unclassified">Unclassified</option>
             </select>
             <button
@@ -163,15 +178,52 @@ export default function FilesTab({ projectId, initialRecords, searchQuery }: Fil
                             window.open(`/api/download/${record.id}`, '_blank')
                           }}
                           className="p-2 hover:bg-bg-elevated rounded transition-colors text-text-secondary"
+                          title="Download"
                         >
                           <Download className="w-4 h-4" />
                         </button>
-                        <Link 
-                          href={`/projects/${projectId}/records/${record.id}`}
-                          className="p-2 hover:bg-bg-elevated rounded transition-colors text-text-secondary"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </Link>
+                        
+                        <div className="relative">
+                          <button 
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setMenuRecordId(menuRecordId === record.id ? null : record.id)
+                            }}
+                            className={`p-2 rounded transition-colors ${menuRecordId === record.id ? 'bg-bg-elevated text-accent' : 'hover:bg-bg-elevated text-text-secondary'}`}
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+
+                          {menuRecordId === record.id && (
+                            <>
+                              <div 
+                                className="fixed inset-0 z-10" 
+                                onClick={(e) => { e.stopPropagation(); setMenuRecordId(null) }} 
+                              />
+                              <div className="absolute right-0 mt-2 w-36 bg-bg-surface border border-bg-border rounded-lg shadow-xl z-20 py-1 overflow-hidden animate-in fade-in zoom-in duration-100">
+                                <Link 
+                                  href={`/projects/${projectId}/records/${record.id}`}
+                                  className="flex items-center gap-2 px-4 py-2 text-xs text-text-secondary hover:bg-bg-elevated hover:text-text-primary transition-colors"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  View Details
+                                </Link>
+                                <button 
+                                  onClick={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    handleDelete(record.id)
+                                  }}
+                                  className="w-full flex items-center gap-2 px-4 py-2 text-xs text-red hover:bg-red/5 transition-colors"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  Delete Record
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>
