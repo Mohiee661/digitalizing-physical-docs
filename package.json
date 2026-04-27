@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "deploy:vercel": "vercel --prod",
+    "deploy:render": "render deploy"
   },
   "dependencies": {
     "@supabase/ssr": "^0.9.0",
