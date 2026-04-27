@@ -33,6 +33,12 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# AI tool skill/agent directories
+.agents/
+.kiro/
+.windsurf/
+skills-lock.json
+
 # vercel
 .vercel
 
