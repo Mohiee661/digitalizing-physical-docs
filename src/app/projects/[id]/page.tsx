@@ -8,7 +8,7 @@ import Link from "next/link"
 import ChatPanel from "@/components/project/ChatPanel"
 import ExportPanel from "@/components/project/ExportPanel"
 import FilesTab from "@/components/project/FilesTab"
-import { createClient } from "@/lib/supabase/server"
+import { createClient } from "@/utils/supabase/server"
 import { redirect } from "next/navigation"
 
 export default async function ProjectPage({ 

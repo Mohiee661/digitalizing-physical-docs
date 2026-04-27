@@ -1,7 +1,7 @@
 import { LogOut } from "lucide-react"
 import ProjectCard from "@/components/project/ProjectCard"
 import NewProjectForm from "@/components/project/NewProjectForm"
-import { createClient } from "@/lib/supabase/server"
+import { createClient } from "@/utils/supabase/server"
 import { redirect } from "next/navigation"
 
 export default async function Dashboard() {

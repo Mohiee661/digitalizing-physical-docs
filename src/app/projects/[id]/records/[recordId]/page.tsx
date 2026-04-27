@@ -12,8 +12,8 @@ import Badge from "@/components/ui/Badge"
 import DocumentPreview from "@/components/ui/DocumentPreview"
 import ChunkedContent from "@/components/ui/ChunkedContent"
 import ReprocessButton from "@/components/ui/ReprocessButton"
-import { createClient } from "@/lib/supabase/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/utils/supabase/server"
+import { createAdminClient } from "@/utils/supabase/admin"
 import { redirect } from "next/navigation"
 
 export default async function RecordDetailPage({ params, searchParams }: { 

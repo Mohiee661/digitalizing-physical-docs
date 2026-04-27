@@ -34,10 +34,10 @@ npm run deploy:vercel
 
 ### Vercel Configuration
 The `vercel.json` file includes:
-- Build command: `npm run build`
-- Output directory: `out`
+- Framework: Next.js
 - Function timeout: 30 seconds
-- Environment variable mappings
+- Deployment region: iad1
+- Managed environment variables via dashboard
 
 ## Render Deployment
 

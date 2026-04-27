@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Modal from "@/components/ui/Modal"
-import { createClient } from "@/lib/supabase/client"
+import { createClient } from "@/utils/supabase/client"
 import { useRouter } from "next/navigation"
 
 interface NewProjectModalProps {
